@@ -525,15 +525,16 @@
 
     <script>
         // ============================================
-        // CONFIGURATION - Edit these values for production
+        // CONFIGURATION - Updated for production
         // ============================================
-const CONFIG = {
-    SHEET_ID: '1hZevCFbyejGQ6IRp3TysyUuMlc3kLAUf8w84zW6zwzo',
-    MEMBERS_SHEET_NAME: 'Members',
-    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbze6fFrseanIaoHZ34PjNfoHioQbXxgzGcNAlt-_oSLpMEeSgBQpnPKa0F4Pai1Sl9DyA/exec',
-    AUTO_SAVE: true,
-    DEMO_MODE: false
-};
+        const CONFIG = {
+            SHEET_ID: '1hZevCFbyejGQ6IRp3TysyUuMlc3kLAUf8w84zW6zwzo',
+            MEMBERS_SHEET_NAME: 'Members',
+            APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbze6fFrseanIaoHZ34PjNfoHioQbXxgzGcNAlt-_oSLpMEeSgBQpnPKa0F4Pai1Sl9DyA/exec',
+            AUTO_SAVE: true,
+            DEMO_MODE: false   // Production mode
+        };
+        // ============================================
         // ============================================
 
         // Demo data for testing
@@ -582,63 +583,39 @@ const CONFIG = {
             }
         }
 
-     async function loadMembersFromGoogleSheets() {
-    console.log('Loading members via Apps Script...');
-    
-    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: 'getMembers',
-            sheetId: CONFIG.SHEET_ID,
-            sheetName: CONFIG.MEMBERS_SHEET_NAME
-        })
-    });
-    
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const result = await response.json();
-    console.log('Apps Script response:', result);
-    
-    if (!result.success) {
-        throw new Error(result.error || 'Failed to load members');
-    }
-    
-    // Clear demo data and load real data
-    memberDatabase = result.members;
-    
-    if (Object.keys(memberDatabase).length === 0) {
-        throw new Error('No members found in database');
-    }
-    
-    console.log('Members loaded successfully:', Object.keys(memberDatabase));
-}
+        async function loadMembersFromGoogleSheets() {
+            console.log('Loading members via Apps Script...');
+            
+            const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'cors',  
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'getMembers',
+                    sheetId: CONFIG.SHEET_ID,
+                    sheetName: CONFIG.MEMBERS_SHEET_NAME
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('Apps Script response:', result);
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to load members');
+            }
             
             // Clear demo data and load real data
-            memberDatabase = {};
-            
-            for (let i = 1; i < rows.length; i++) {
-                const row = rows[i];
-                if (row.length >= 3 && row[0]) {
-                    const memberId = row[0].trim().toUpperCase();
-                    const name = row[1] ? row[1].trim() : 'Unknown Member';
-                    const paid = row[2] ? (row[2].trim().toLowerCase() === 'true' || row[2].trim().toLowerCase() === 'yes' || row[2].trim() === '1') : false;
-                    const membershipType = row[3] ? row[3].trim() : 'Standard';
-                    
-                    memberDatabase[memberId] = {
-                        name: name,
-                        paid: paid,
-                        membershipType: membershipType
-                    };
-                }
-            }
+            memberDatabase = result.members;
             
             if (Object.keys(memberDatabase).length === 0) {
-                throw new Error('No valid member records found');
+                throw new Error('No members found in database');
             }
+            
+            console.log('Members loaded successfully:', Object.keys(memberDatabase));
         }
 
         function parseCSV(csvText) {
