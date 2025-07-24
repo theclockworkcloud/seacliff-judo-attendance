@@ -527,13 +527,13 @@
         // ============================================
         // CONFIGURATION - Edit these values for production
         // ============================================
-        const CONFIG = {
-            SHEET_ID: '1hZevCFbyejGQ6IRp3TysyUuMlc3kLAUf8w84zW6zwzo',
-            MEMBERS_SHEET_NAME: 'Members',
-            APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbze6fFrseanIaoHZ34PjNfoHioQbXxgzGcNAlt-_oSLpMEeSgBQpnPKa0F4Pai1Sl9DyA/exec',
-            AUTO_SAVE: true, // Set to true for production
-            DEMO_MODE: false   // Set to false for production
-        };
+const CONFIG = {
+    SHEET_ID: '1hZevCFbyejGQ6IRp3TysyUuMlc3kLAUf8w84zW6zwzo',
+    MEMBERS_SHEET_NAME: 'Members',
+    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbze6fFrseanIaoHZ34PjNfoHioQbXxgzGcNAlt-_oSLpMEeSgBQpnPKa0F4Pai1Sl9DyA/exec',
+    AUTO_SAVE: true,
+    DEMO_MODE: false
+};
         // ============================================
 
         // Demo data for testing
@@ -582,30 +582,40 @@
             }
         }
 
-        async function loadMembersFromGoogleSheets() {
-            const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.MEMBERS_SHEET_NAME)}`;
-            
-            const response = await fetch(url, { 
-                method: 'GET',
-                mode: 'cors',
-                cache: 'no-cache'
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const csvData = await response.text();
-            
-            if (csvData.includes('Sorry, the file you have requested does not exist')) {
-                throw new Error('Google Sheet not accessible');
-            }
-            
-            const rows = parseCSV(csvData);
-            
-            if (rows.length < 2) {
-                throw new Error('Sheet appears empty');
-            }
+     async function loadMembersFromGoogleSheets() {
+    console.log('Loading members via Apps Script...');
+    
+    const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'getMembers',
+            sheetId: CONFIG.SHEET_ID,
+            sheetName: CONFIG.MEMBERS_SHEET_NAME
+        })
+    });
+    
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    console.log('Apps Script response:', result);
+    
+    if (!result.success) {
+        throw new Error(result.error || 'Failed to load members');
+    }
+    
+    // Clear demo data and load real data
+    memberDatabase = result.members;
+    
+    if (Object.keys(memberDatabase).length === 0) {
+        throw new Error('No members found in database');
+    }
+    
+    console.log('Members loaded successfully:', Object.keys(memberDatabase));
+}
             
             // Clear demo data and load real data
             memberDatabase = {};
