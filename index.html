@@ -142,6 +142,8 @@
             display: none;
             border: 2px solid #28a745;
             box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
+            background: #000;
+            z-index: 1;
         }
 
         .camera-preview-overlay {
@@ -156,7 +158,7 @@
             background: rgba(40, 167, 69, 0.1);
             display: none;
             pointer-events: none;
-            z-index: 10;
+            z-index: 5;
         }
 
         .camera-preview-overlay::before {
@@ -711,7 +713,33 @@
                 scanButton.textContent = 'Starting Camera...';
                 scannerStatus.textContent = 'Requesting camera access...';
 
-                // Initialize QR Scanner with enhanced settings for better preview
+                // For demo/artifact mode, show a simulated camera preview
+                if (CONFIG.DEMO_MODE || window.location.hostname === '') {
+                    // Show simulated camera preview
+                    cameraIcon.style.display = 'none';
+                    videoElement.style.display = 'block';
+                    videoElement.style.background = 'linear-gradient(45deg, #f0f0f0 25%, transparent 25%), linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f0f0f0 75%), linear-gradient(-45deg, transparent 75%, #f0f0f0 75%)';
+                    videoElement.style.backgroundSize = '20px 20px';
+                    videoElement.style.backgroundPosition = '0 0, 0 10px, 10px -10px, -10px 0px';
+                    
+                    // Add demo text overlay
+                    videoElement.innerHTML = '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #666; text-align: center; font-size: 0.9rem; line-height: 1.4;"><strong>📷 Camera Preview</strong><br>Live video feed will appear here<br>when hosted on a real website<br><small>(GitHub Pages, Netlify, etc.)</small></div>';
+                    
+                    scanOverlay.style.display = 'block';
+                    scannerContainer.classList.add('active');
+                    
+                    scannerStatus.innerHTML = '📹 <strong>Demo Camera Active</strong> - Real camera will work when properly hosted';
+                    scannerStatus.style.color = '#28a745';
+                    
+                    scanButton.textContent = 'Stop Scanner';
+                    scanButton.className = 'scan-button stop';
+                    scanButton.disabled = false;
+                    isScanning = true;
+                    
+                    return;
+                }
+
+                // Real QR Scanner for production
                 qrScanner = new QrScanner(
                     videoElement,
                     result => processQRCode(result.data),
@@ -719,8 +747,8 @@
                         returnDetailedScanResult: true,
                         highlightScanRegion: true,
                         highlightCodeOutline: true,
-                        preferredCamera: 'environment', // Use back camera on mobile
-                        maxScansPerSecond: 5, // Smooth scanning
+                        preferredCamera: 'environment',
+                        maxScansPerSecond: 5,
                     }
                 );
 
@@ -729,6 +757,7 @@
                 // Update UI to show camera preview
                 cameraIcon.style.display = 'none';
                 videoElement.style.display = 'block';
+                videoElement.innerHTML = ''; // Clear demo content
                 scanOverlay.style.display = 'block';
                 scannerContainer.classList.add('active');
                 
