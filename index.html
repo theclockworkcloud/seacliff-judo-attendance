@@ -584,52 +584,64 @@
         }
 
         async function loadMembersFromGoogleSheets() {
-    console.log('Loading members via JSONP...');
-    
-    return new Promise((resolve, reject) => {
-        // Create unique callback name
-        const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
-        
-        // Create script element for JSONP
-        const script = document.createElement('script');
-        const url = `${CONFIG.APPS_SCRIPT_URL}?action=getMembers&sheetId=${CONFIG.SHEET_ID}&sheetName=${CONFIG.MEMBERS_SHEET_NAME}&callback=${callbackName}`;
-        
-        // Define callback function
-        window[callbackName] = function(result) {
-            console.log('JSONP response:', result);
+            console.log('Loading members via JSONP...');
             
-            // Cleanup
-            document.head.removeChild(script);
-            delete window[callbackName];
-            
-            if (!result.success) {
-                reject(new Error(result.error || 'Failed to load members'));
-                return;
-            }
-            
-            // Load member data
-            memberDatabase = result.members;
-            
-            if (Object.keys(memberDatabase).length === 0) {
-                reject(new Error('No members found in database'));
-                return;
-            }
-            
-            console.log('Members loaded successfully:', Object.keys(memberDatabase));
-            resolve();
-        };
-        
-        // Handle errors
-        script.onerror = function() {
-            document.head.removeChild(script);
-            delete window[callbackName];
-            reject(new Error('Failed to load script'));
-        };
-        
-        script.src = url;
-        document.head.appendChild(script);
-    });
-}
+            return new Promise((resolve, reject) => {
+                // Create unique callback name
+                const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+                
+                // Create script element for JSONP
+                const script = document.createElement('script');
+                const url = `${CONFIG.APPS_SCRIPT_URL}?action=getMembers&sheetId=${CONFIG.SHEET_ID}&sheetName=${CONFIG.MEMBERS_SHEET_NAME}&callback=${callbackName}`;
+                
+                console.log('JSONP URL:', url);
+                
+                // Define callback function
+                window[callbackName] = function(result) {
+                    console.log('JSONP response:', result);
+                    
+                    // Cleanup
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                    
+                    if (!result.success) {
+                        reject(new Error(result.error || 'Failed to load members'));
+                        return;
+                    }
+                    
+                    // Load member data
+                    memberDatabase = result.members;
+                    
+                    if (Object.keys(memberDatabase).length === 0) {
+                        reject(new Error('No members found in database'));
+                        return;
+                    }
+                    
+                    console.log('Members loaded successfully:', Object.keys(memberDatabase));
+                    resolve();
+                };
+                
+                // Handle errors
+                script.onerror = function() {
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                    reject(new Error('Failed to load JSONP script'));
+                };
+                
+                // Set timeout for JSONP request
+                setTimeout(() => {
+                    if (window[callbackName]) {
+                        document.head.removeChild(script);
+                        delete window[callbackName];
+                        reject(new Error('JSONP request timeout'));
+                    }
+                }, 10000);
+                
+                script.src = url;
+                document.head.appendChild(script);
+            });
+        }
+
         function parseCSV(csvText) {
             const rows = [];
             const lines = csvText.split('\n');
