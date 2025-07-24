@@ -584,62 +584,66 @@
         }
 
         async function loadMembersFromGoogleSheets() {
-            console.log('Loading members via JSONP...');
+            console.log('Loading members via proxy service...');
             
-            return new Promise((resolve, reject) => {
-                // Create unique callback name
-                const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
-                
-                // Create script element for JSONP
-                const script = document.createElement('script');
-                const url = `${CONFIG.APPS_SCRIPT_URL}?action=getMembers&sheetId=${CONFIG.SHEET_ID}&sheetName=${CONFIG.MEMBERS_SHEET_NAME}&callback=${callbackName}`;
-                
-                console.log('JSONP URL:', url);
-                
-                // Define callback function
-                window[callbackName] = function(result) {
-                    console.log('JSONP response:', result);
-                    
-                    // Cleanup
-                    document.head.removeChild(script);
-                    delete window[callbackName];
-                    
-                    if (!result.success) {
-                        reject(new Error(result.error || 'Failed to load members'));
-                        return;
-                    }
-                    
-                    // Load member data
-                    memberDatabase = result.members;
-                    
-                    if (Object.keys(memberDatabase).length === 0) {
-                        reject(new Error('No members found in database'));
-                        return;
-                    }
-                    
-                    console.log('Members loaded successfully:', Object.keys(memberDatabase));
-                    resolve();
-                };
-                
-                // Handle errors
-                script.onerror = function() {
-                    document.head.removeChild(script);
-                    delete window[callbackName];
-                    reject(new Error('Failed to load JSONP script'));
-                };
-                
-                // Set timeout for JSONP request
-                setTimeout(() => {
-                    if (window[callbackName]) {
-                        document.head.removeChild(script);
-                        delete window[callbackName];
-                        reject(new Error('JSONP request timeout'));
-                    }
-                }, 10000);
-                
-                script.src = url;
-                document.head.appendChild(script);
+            // Use a CORS proxy service to access Google Sheets
+            const proxyUrl = 'https://api.allorigins.win/raw?url=';
+            const sheetUrl = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.MEMBERS_SHEET_NAME)}`;
+            const fullUrl = proxyUrl + encodeURIComponent(sheetUrl);
+            
+            console.log('Fetching from proxy URL...');
+            
+            const response = await fetch(fullUrl, {
+                method: 'GET',
+                cache: 'no-cache'
             });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const csvData = await response.text();
+            console.log('CSV data received, length:', csvData.length);
+            
+            if (csvData.includes('Sorry, the file you have requested does not exist')) {
+                throw new Error('Google Sheet not accessible - check sharing permissions');
+            }
+            
+            if (csvData.includes('error') || csvData.length < 50) {
+                throw new Error('Invalid CSV data received');
+            }
+            
+            const rows = parseCSV(csvData);
+            console.log('Parsed rows:', rows.length);
+            
+            if (rows.length < 2) {
+                throw new Error('Sheet appears empty');
+            }
+            
+            // Clear demo data and load real data
+            memberDatabase = {};
+            
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.length >= 3 && row[0]) {
+                    const memberId = row[0].trim().toUpperCase();
+                    const name = row[1] ? row[1].trim() : 'Unknown Member';
+                    const paid = row[2] ? (row[2].trim().toLowerCase() === 'true' || row[2].trim().toLowerCase() === 'yes' || row[2].trim() === '1') : false;
+                    const membershipType = row[3] ? row[3].trim() : 'Standard';
+                    
+                    memberDatabase[memberId] = {
+                        name: name,
+                        paid: paid,
+                        membershipType: membershipType
+                    };
+                }
+            }
+            
+            if (Object.keys(memberDatabase).length === 0) {
+                throw new Error('No valid member records found');
+            }
+            
+            console.log('Members loaded successfully:', Object.keys(memberDatabase));
         }
 
         function parseCSV(csvText) {
