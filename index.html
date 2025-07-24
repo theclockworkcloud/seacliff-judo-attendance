@@ -584,40 +584,52 @@
         }
 
         async function loadMembersFromGoogleSheets() {
-            console.log('Loading members via Apps Script...');
+    console.log('Loading members via JSONP...');
+    
+    return new Promise((resolve, reject) => {
+        // Create unique callback name
+        const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+        
+        // Create script element for JSONP
+        const script = document.createElement('script');
+        const url = `${CONFIG.APPS_SCRIPT_URL}?action=getMembers&sheetId=${CONFIG.SHEET_ID}&sheetName=${CONFIG.MEMBERS_SHEET_NAME}&callback=${callbackName}`;
+        
+        // Define callback function
+        window[callbackName] = function(result) {
+            console.log('JSONP response:', result);
             
-            const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
-                method: 'POST',
-                mode: 'cors',  
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'getMembers',
-                    sheetId: CONFIG.SHEET_ID,
-                    sheetName: CONFIG.MEMBERS_SHEET_NAME
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            console.log('Apps Script response:', result);
+            // Cleanup
+            document.head.removeChild(script);
+            delete window[callbackName];
             
             if (!result.success) {
-                throw new Error(result.error || 'Failed to load members');
+                reject(new Error(result.error || 'Failed to load members'));
+                return;
             }
             
-            // Clear demo data and load real data
+            // Load member data
             memberDatabase = result.members;
             
             if (Object.keys(memberDatabase).length === 0) {
-                throw new Error('No members found in database');
+                reject(new Error('No members found in database'));
+                return;
             }
             
             console.log('Members loaded successfully:', Object.keys(memberDatabase));
-        }
-
+            resolve();
+        };
+        
+        // Handle errors
+        script.onerror = function() {
+            document.head.removeChild(script);
+            delete window[callbackName];
+            reject(new Error('Failed to load script'));
+        };
+        
+        script.src = url;
+        document.head.appendChild(script);
+    });
+}
         function parseCSV(csvText) {
             const rows = [];
             const lines = csvText.split('\n');
