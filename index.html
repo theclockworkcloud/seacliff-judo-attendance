@@ -584,66 +584,95 @@
         }
 
         async function loadMembersFromGoogleSheets() {
-            console.log('Loading members via proxy service...');
+            console.log('Loading members via multiple proxy attempts...');
             
-            // Use a CORS proxy service to access Google Sheets
-            const proxyUrl = 'https://api.allorigins.win/raw?url=';
             const sheetUrl = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.MEMBERS_SHEET_NAME)}`;
-            const fullUrl = proxyUrl + encodeURIComponent(sheetUrl);
             
-            console.log('Fetching from proxy URL...');
+            // Try multiple proxy services
+            const proxies = [
+                'https://api.codetabs.com/v1/proxy?quest=',
+                'https://corsproxy.io/?',
+                'https://api.allorigins.win/raw?url='
+            ];
             
-            const response = await fetch(fullUrl, {
-                method: 'GET',
-                cache: 'no-cache'
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const csvData = await response.text();
-            console.log('CSV data received, length:', csvData.length);
-            
-            if (csvData.includes('Sorry, the file you have requested does not exist')) {
-                throw new Error('Google Sheet not accessible - check sharing permissions');
-            }
-            
-            if (csvData.includes('error') || csvData.length < 50) {
-                throw new Error('Invalid CSV data received');
-            }
-            
-            const rows = parseCSV(csvData);
-            console.log('Parsed rows:', rows.length);
-            
-            if (rows.length < 2) {
-                throw new Error('Sheet appears empty');
-            }
-            
-            // Clear demo data and load real data
-            memberDatabase = {};
-            
-            for (let i = 1; i < rows.length; i++) {
-                const row = rows[i];
-                if (row.length >= 3 && row[0]) {
-                    const memberId = row[0].trim().toUpperCase();
-                    const name = row[1] ? row[1].trim() : 'Unknown Member';
-                    const paid = row[2] ? (row[2].trim().toLowerCase() === 'true' || row[2].trim().toLowerCase() === 'yes' || row[2].trim() === '1') : false;
-                    const membershipType = row[3] ? row[3].trim() : 'Standard';
+            for (let i = 0; i < proxies.length; i++) {
+                try {
+                    console.log(`Trying proxy ${i + 1}:`, proxies[i]);
                     
-                    memberDatabase[memberId] = {
-                        name: name,
-                        paid: paid,
-                        membershipType: membershipType
-                    };
+                    const proxyUrl = proxies[i] + encodeURIComponent(sheetUrl);
+                    const response = await fetch(proxyUrl, {
+                        method: 'GET',
+                        cache: 'no-cache'
+                    });
+                    
+                    if (!response.ok) {
+                        console.log(`Proxy ${i + 1} failed with status:`, response.status);
+                        continue;
+                    }
+                    
+                    const csvData = await response.text();
+                    console.log(`Proxy ${i + 1} returned data, length:`, csvData.length);
+                    console.log('CSV preview:', csvData.substring(0, 200));
+                    
+                    if (csvData.includes('Sorry, the file you have requested does not exist')) {
+                        console.log(`Proxy ${i + 1}: Sheet not accessible`);
+                        continue;
+                    }
+                    
+                    if (csvData.includes('sign') || csvData.includes('login') || csvData.includes('<html')) {
+                        console.log(`Proxy ${i + 1}: Got login page`);
+                        continue;
+                    }
+                    
+                    if (csvData.length < 30) {
+                        console.log(`Proxy ${i + 1}: Data too short`);
+                        continue;
+                    }
+                    
+                    // Try to parse the CSV
+                    const rows = parseCSV(csvData);
+                    console.log('Parsed rows:', rows.length);
+                    
+                    if (rows.length < 2) {
+                        console.log(`Proxy ${i + 1}: Not enough rows`);
+                        continue;
+                    }
+                    
+                    // Success! Process the data
+                    memberDatabase = {};
+                    
+                    for (let j = 1; j < rows.length; j++) {
+                        const row = rows[j];
+                        if (row.length >= 3 && row[0]) {
+                            const memberId = row[0].trim().toUpperCase();
+                            const name = row[1] ? row[1].trim() : 'Unknown Member';
+                            const paid = row[2] ? (row[2].trim().toLowerCase() === 'true' || row[2].trim().toLowerCase() === 'yes' || row[2].trim() === '1') : false;
+                            const membershipType = row[3] ? row[3].trim() : 'Standard';
+                            
+                            memberDatabase[memberId] = {
+                                name: name,
+                                paid: paid,
+                                membershipType: membershipType
+                            };
+                        }
+                    }
+                    
+                    if (Object.keys(memberDatabase).length === 0) {
+                        console.log(`Proxy ${i + 1}: No valid members found`);
+                        continue;
+                    }
+                    
+                    console.log(`Success with proxy ${i + 1}! Members loaded:`, Object.keys(memberDatabase));
+                    return; // Success!
+                    
+                } catch (error) {
+                    console.log(`Proxy ${i + 1} error:`, error.message);
+                    continue;
                 }
             }
             
-            if (Object.keys(memberDatabase).length === 0) {
-                throw new Error('No valid member records found');
-            }
-            
-            console.log('Members loaded successfully:', Object.keys(memberDatabase));
+            // If all proxies failed, throw error
+            throw new Error('All proxy services failed. Please check Google Sheet sharing settings.');
         }
 
         function parseCSV(csvText) {
