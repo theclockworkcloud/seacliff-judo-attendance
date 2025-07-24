@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Club Member Attendance</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.2/qr-scanner.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .connection-status {
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading-status {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .event-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .event-section h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .input-field {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .scanner-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .scanner-container {
+            position: relative;
+            background: #f8f9fa;
+            border: 3px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            transition: border-color 0.3s ease;
+        }
+
+        .scanner-container.active {
+            border-color: #28a745;
+            border-style: solid;
+            background: #f8fff9;
+        }
+
+        #qr-video {
+            width: 100%;
+            max-width: 350px;
+            height: 350px;
+            border-radius: 10px;
+            object-fit: cover;
+            display: none;
+            border: 2px solid #28a745;
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
+        }
+
+        .camera-preview-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 3px solid #28a745;
+            border-radius: 10px;
+            background: rgba(40, 167, 69, 0.1);
+            display: none;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .camera-preview-overlay::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border: 2px dashed #28a745;
+            border-radius: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        .camera-preview-overlay::after {
+            content: 'QR SCAN AREA';
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        .camera-icon {
+            font-size: 4rem;
+            color: #6c757d;
+            margin-bottom: 15px;
+        }
+
+        .scan-button {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .scan-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3);
+        }
+
+        .scan-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .scan-button.stop {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+
+        .manual-entry {
+            margin: 20px 0;
+        }
+
+        .add-button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+
+        .add-button:hover {
+            background: #2980b9;
+        }
+
+        .member-result {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .member-result.paid {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+
+        .member-result.unpaid {
+            border-color: #dc3545;
+            background: #fff8f8;
+        }
+
+        .member-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .member-details h3 {
+            font-size: 1.3rem;
+            margin-bottom: 5px;
+        }
+
+        .member-id {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .payment-status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+
+        .status-paid {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-unpaid {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .attendance-log {
+            margin-top: 30px;
+        }
+
+        .attendance-log h3 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        .log-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .log-time {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #dc3545;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #28a745;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .setup-button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+        }
+
+        .setup-button:hover {
+            background: #2980b9;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                border-radius: 10px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .member-info {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            .input-field {
+                min-width: auto;
+            }
+        }
+
+        .auto-save-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 10px;
+            font-size: 0.9rem;
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Club Member Attendance</h1>
+            <p>Scan QR codes or enter member IDs to record attendance</p>
+        </div>
+
+        <div class="content">
+            <div id="connectionStatus" class="connection-status connected">
+                ✅ Ready - Demo mode with sample members
+            </div>
+
+            <div class="scanner-section">
+                <div class="scanner-container" id="scannerContainer">
+                    <div class="camera-icon" id="cameraIcon">📱</div>
+                    <video id="qr-video" autoplay muted playsinline></video>
+                    <div class="camera-preview-overlay" id="scanOverlay"></div>
+                    <p id="scannerStatus">Position QR code within the scanner area</p>
+                    <br>
+                    <button class="scan-button" id="scanButton" onclick="toggleScanner()">Start QR Scanner</button>
+                </div>
+            </div>
+
+            <div class="manual-entry">
+                <h3>Or enter member details manually:</h3>
+                <div class="input-group">
+                    <input type="text" class="input-field" id="memberIdInput" placeholder="Member ID (e.g., MEM001, MEM002, MEM003)">
+                    <input type="text" class="input-field" id="memberNameInput" placeholder="Member Name (optional if in database)">
+                    <button class="add-button" onclick="recordAttendance()">Record Attendance</button>
+                </div>
+            </div>
+
+            <div id="memberResult"></div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalAttendees">0</div>
+                    <div class="stat-label">Total Attendees</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="paidMembers">0</div>
+                    <div class="stat-label">Paid Members</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="unpaidMembers">0</div>
+                    <div class="stat-label">Outstanding</div>
+                </div>
+            </div>
+
+            <div class="attendance-log">
+                <h3>Today's Attendance Log</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <button class="setup-button" onclick="downloadAttendanceCSV()" 
+                                style="background: #6c757d;">
+                            📄 Download CSV
+                        </button>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #6c757d;" id="saveStatus">
+                        Demo mode - CSV download available
+                    </div>
+                </div>
+                <div id="attendanceList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // CONFIGURATION - Edit these values for production
+        // ============================================
+        const CONFIG = {
+            SHEET_ID: '1hZevCFbyejGQ6IRp3TysyUuMlc3kLAUf8w84zW6zwzo',
+            MEMBERS_SHEET_NAME: 'Members',
+            APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbykxatAJWhC_bjjcU357IJ6Os4F5RMawN8zTqT97hp67vRxf6qWG8mGVcSAAdFlKuV57g/exec',
+            AUTO_SAVE: false, // Set to true for production
+            DEMO_MODE: true   // Set to false for production
+        };
+        // ============================================
+
+        // Demo data for testing
+        let memberDatabase = {
+            'MEM001': { name: 'John Smith', paid: true, membershipType: 'Annual' },
+            'MEM002': { name: 'Jane Wilson', paid: false, membershipType: 'Monthly' },
+            'MEM003': { name: 'Bob Johnson', paid: true, membershipType: 'Annual' },
+            'MEM004': { name: 'Sarah Davis', paid: false, membershipType: 'Monthly' },
+            'MEM005': { name: 'Mike Brown', paid: true, membershipType: 'Annual' }
+        };
+
+        let attendanceLog = [];
+        let stats = { total: 0, paid: 0, unpaid: 0 };
+        let qrScanner = null;
+        let isScanning = false;
+
+        // Initialize the app
+        function initializeApp() {
+            console.log('=== INITIALIZING ATTENDANCE APP ===');
+            
+            if (CONFIG.DEMO_MODE) {
+                console.log('Running in demo mode with sample data');
+                updateConnectionStatus('connected', `✅ Demo Mode - ${Object.keys(memberDatabase).length} sample members loaded`);
+                return;
+            }
+
+            // Production mode - try to connect to real Google Sheets
+            loadProductionData();
+        }
+
+        async function loadProductionData() {
+            updateConnectionStatus('loading', 'Loading member database...');
+            
+            try {
+                console.log('Attempting to load members from Google Sheets...');
+                await loadMembersFromGoogleSheets();
+                
+                console.log('Testing Apps Script connection...');
+                await testAppsScriptConnection();
+                
+                updateConnectionStatus('connected', `✅ Ready - ${Object.keys(memberDatabase).length} members loaded`);
+                
+            } catch (error) {
+                console.error('Production setup failed:', error);
+                updateConnectionStatus('error', '⚠️ Connection failed - Using demo mode');
+            }
+        }
+
+        async function loadMembersFromGoogleSheets() {
+            const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.MEMBERS_SHEET_NAME)}`;
+            
+            const response = await fetch(url, { 
+                method: 'GET',
+                mode: 'cors',
+                cache: 'no-cache'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const csvData = await response.text();
+            
+            if (csvData.includes('Sorry, the file you have requested does not exist')) {
+                throw new Error('Google Sheet not accessible');
+            }
+            
+            const rows = parseCSV(csvData);
+            
+            if (rows.length < 2) {
+                throw new Error('Sheet appears empty');
+            }
+            
+            // Clear demo data and load real data
+            memberDatabase = {};
+            
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.length >= 3 && row[0]) {
+                    const memberId = row[0].trim().toUpperCase();
+                    const name = row[1] ? row[1].trim() : 'Unknown Member';
+                    const paid = row[2] ? (row[2].trim().toLowerCase() === 'true' || row[2].trim().toLowerCase() === 'yes' || row[2].trim() === '1') : false;
+                    const membershipType = row[3] ? row[3].trim() : 'Standard';
+                    
+                    memberDatabase[memberId] = {
+                        name: name,
+                        paid: paid,
+                        membershipType: membershipType
+                    };
+                }
+            }
+            
+            if (Object.keys(memberDatabase).length === 0) {
+                throw new Error('No valid member records found');
+            }
+        }
+
+        function parseCSV(csvText) {
+            const rows = [];
+            const lines = csvText.split('\n');
+            
+            for (const line of lines) {
+                if (line.trim() === '') continue;
+                
+                const row = [];
+                let current = '';
+                let inQuotes = false;
+                
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        row.push(current.replace(/^"(.*)"$/, '$1'));
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                
+                row.push(current.replace(/^"(.*)"$/, '$1'));
+                rows.push(row);
+            }
+            
+            return rows;
+        }
+
+        async function testAppsScriptConnection() {
+            if (CONFIG.DEMO_MODE) return;
+            
+            const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'test',
+                    sheetId: CONFIG.SHEET_ID
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Apps Script HTTP ${response.status}`);
+            }
+
+            const result = await response.text();
+            if (!result.includes('Success')) {
+                throw new Error('Apps Script test failed');
+            }
+        }
+
+        function updateConnectionStatus(type, message) {
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.className = `connection-status ${type === 'loading' ? 'loading-status' : type === 'connected' ? 'connected' : 'disconnected'}`;
+            statusDiv.innerHTML = type === 'loading' ? `<span class="loading"></span> ${message}` : message;
+        }
+
+        // QR Scanner Integration
+        async function toggleScanner() {
+            if (isScanning) {
+                stopScanner();
+            } else {
+                await startScanner();
+            }
+        }
+
+        async function startScanner() {
+            try {
+                const videoElement = document.getElementById('qr-video');
+                const cameraIcon = document.getElementById('cameraIcon');
+                const scannerStatus = document.getElementById('scannerStatus');
+                const scanButton = document.getElementById('scanButton');
+                const scannerContainer = document.getElementById('scannerContainer');
+                const scanOverlay = document.getElementById('scanOverlay');
+
+                scanButton.disabled = true;
+                scanButton.textContent = 'Starting Camera...';
+                scannerStatus.textContent = 'Requesting camera access...';
+
+                // Initialize QR Scanner with enhanced settings for better preview
+                qrScanner = new QrScanner(
+                    videoElement,
+                    result => processQRCode(result.data),
+                    {
+                        returnDetailedScanResult: true,
+                        highlightScanRegion: true,
+                        highlightCodeOutline: true,
+                        preferredCamera: 'environment', // Use back camera on mobile
+                        maxScansPerSecond: 5, // Smooth scanning
+                    }
+                );
+
+                await qrScanner.start();
+                
+                // Update UI to show camera preview
+                cameraIcon.style.display = 'none';
+                videoElement.style.display = 'block';
+                scanOverlay.style.display = 'block';
+                scannerContainer.classList.add('active');
+                
+                scannerStatus.innerHTML = '📹 <strong>Camera Active</strong> - Position QR code in the green area above';
+                scannerStatus.style.color = '#28a745';
+                
+                scanButton.textContent = 'Stop Scanner';
+                scanButton.className = 'scan-button stop';
+                scanButton.disabled = false;
+                isScanning = true;
+
+                // Add visual feedback for successful scan detection
+                videoElement.addEventListener('loadedmetadata', () => {
+                    console.log(`Camera resolution: ${videoElement.videoWidth}x${videoElement.videoHeight}`);
+                });
+
+            } catch (error) {
+                console.error('Scanner start failed:', error);
+                
+                let errorMessage = 'Failed to start camera. ';
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += 'Please allow camera access and try again.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += 'No camera found on this device.';
+                } else if (error.name === 'NotSupportedError') {
+                    errorMessage += 'Camera not supported on this browser.';
+                } else {
+                    errorMessage += 'Please check camera permissions and try again.';
+                }
+                
+                showError(errorMessage);
+                
+                const scanButton = document.getElementById('scanButton');
+                scanButton.disabled = false;
+                scanButton.textContent = 'Start QR Scanner';
+                scanButton.className = 'scan-button';
+            }
+        }
+
+        function stopScanner() {
+            if (qrScanner) {
+                qrScanner.stop();
+                qrScanner.destroy();
+                qrScanner = null;
+            }
+
+            // Reset UI
+            const videoElement = document.getElementById('qr-video');
+            const cameraIcon = document.getElementById('cameraIcon');
+            const scannerStatus = document.getElementById('scannerStatus');
+            const scanButton = document.getElementById('scanButton');
+            const scannerContainer = document.getElementById('scannerContainer');
+            const scanOverlay = document.getElementById('scanOverlay');
+
+            videoElement.style.display = 'none';
+            scanOverlay.style.display = 'none';
+            cameraIcon.style.display = 'block';
+            scannerContainer.classList.remove('active');
+            
+            scannerStatus.textContent = 'Position QR code within the scanner area';
+            scannerStatus.style.color = '#6c757d';
+            
+            scanButton.textContent = 'Start QR Scanner';
+            scanButton.className = 'scan-button';
+            isScanning = false;
+        }
+
+        function processQRCode(qrData) {
+            const memberId = qrData.trim().toUpperCase();
+            recordMemberAttendance(memberId);
+            playBeep();
+        }
+
+        function playBeep() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+            } catch (error) {
+                console.log('Audio feedback not available');
+            }
+        }
+
+        // Attendance Recording
+        function recordAttendance() {
+            const memberId = document.getElementById('memberIdInput').value.trim().toUpperCase();
+            const memberName = document.getElementById('memberNameInput').value.trim();
+            
+            if (!memberId) {
+                showError('Please enter a member ID');
+                return;
+            }
+
+            // If name is provided but member not in database, add them
+            if (memberName && !memberDatabase[memberId]) {
+                memberDatabase[memberId] = { 
+                    name: memberName, 
+                    paid: false,
+                    membershipType: 'New'
+                };
+            }
+
+            recordMemberAttendance(memberId);
+            
+            // Clear inputs
+            document.getElementById('memberIdInput').value = '';
+            document.getElementById('memberNameInput').value = '';
+        }
+
+        function recordMemberAttendance(memberId) {
+            const member = memberDatabase[memberId];
+            
+            if (!member) {
+                showError(`Member ${memberId} not found in database. Please check the ID or add the member name manually.`);
+                return;
+            }
+
+            // Check if already recorded today
+            const today = new Date().toDateString();
+            const alreadyRecorded = attendanceLog.find(log => 
+                log.memberId === memberId && log.date === today
+            );
+
+            if (alreadyRecorded) {
+                showError(`${member.name} has already been recorded today at ${alreadyRecorded.time}`);
+                return;
+            }
+
+            // Record attendance with automatic date/time
+            const timestamp = new Date();
+            const logEntry = {
+                memberId: memberId,
+                name: member.name,
+                paid: member.paid,
+                membershipType: member.membershipType,
+                time: timestamp.toLocaleTimeString(),
+                date: timestamp.toDateString(),
+                event: 'Club Attendance' // Default event name
+            };
+
+            attendanceLog.unshift(logEntry);
+            updateStats();
+            displayMemberResult(logEntry);
+            updateAttendanceLog();
+
+            // Auto-save if enabled and not in demo mode
+            if (CONFIG.AUTO_SAVE && !CONFIG.DEMO_MODE) {
+                saveAttendanceRecord(logEntry);
+            }
+        }
+
+        async function saveAttendanceRecord(logEntry) {
+            try {
+                const attendanceRecord = [
+                    new Date().toLocaleDateString('en-AU'),
+                    logEntry.time,
+                    logEntry.memberId,
+                    logEntry.name,
+                    logEntry.paid ? 'Yes' : 'No',
+                    logEntry.event
+                ];
+
+                const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'addAttendance',
+                        sheetId: CONFIG.SHEET_ID,
+                        attendanceData: [attendanceRecord]
+                    })
+                });
+
+                if (response.ok) {
+                    console.log('Attendance auto-saved successfully');
+                    const saveStatus = document.getElementById('saveStatus');
+                    saveStatus.innerHTML = '✅ Last saved: ' + new Date().toLocaleTimeString();
+                }
+                
+            } catch (error) {
+                console.error('Auto-save failed:', error);
+                const saveStatus = document.getElementById('saveStatus');
+                saveStatus.innerHTML = '⚠️ Auto-save failed - CSV backup recommended';
+                saveStatus.style.color = '#dc3545';
+            }
+        }
+
+        function displayMemberResult(logEntry) {
+            const resultDiv = document.getElementById('memberResult');
+            const statusClass = logEntry.paid ? 'paid' : 'unpaid';
+            const statusText = logEntry.paid ? 'Paid Up' : 'Payment Outstanding';
+            const statusBadgeClass = logEntry.paid ? 'status-paid' : 'status-unpaid';
+
+            resultDiv.innerHTML = `
+                <div class="member-result ${statusClass}">
+                    <div class="member-info">
+                        <div class="member-details">
+                            <h3>${logEntry.name}</h3>
+                            <div class="member-id">ID: ${logEntry.memberId} • ${logEntry.membershipType} Member</div>
+                        </div>
+                        <div class="payment-status ${statusBadgeClass}">
+                            ${statusText}
+                        </div>
+                    </div>
+                    <p style="margin-top: 15px; color: #28a745; font-weight: bold;">
+                        ✓ Attendance recorded at ${logEntry.time}
+                    </p>
+                </div>
+            `;
+        }
+
+        function updateStats() {
+            stats.total = attendanceLog.length;
+            stats.paid = attendanceLog.filter(log => log.paid).length;
+            stats.unpaid = attendanceLog.filter(log => !log.paid).length;
+
+            document.getElementById('totalAttendees').textContent = stats.total;
+            document.getElementById('paidMembers').textContent = stats.paid;
+            document.getElementById('unpaidMembers').textContent = stats.unpaid;
+        }
+
+        function updateAttendanceLog() {
+            const listDiv = document.getElementById('attendanceList');
+            
+            if (attendanceLog.length === 0) {
+                listDiv.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">No attendees recorded yet</p>';
+                return;
+            }
+
+            const logHtml = attendanceLog.map(log => `
+                <div class="log-entry">
+                    <div>
+                        <strong>${log.name}</strong> (${log.memberId})
+                        <span class="payment-status ${log.paid ? 'status-paid' : 'status-unpaid'}" style="margin-left: 10px; font-size: 0.7rem;">
+                            ${log.paid ? 'PAID' : 'UNPAID'}
+                        </span>
+                    </div>
+                    <div class="log-time">${log.time}</div>
+                </div>
+            `).join('');
+
+            listDiv.innerHTML = logHtml;
+        }
+
+        function downloadAttendanceCSV() {
+            if (attendanceLog.length === 0) {
+                showError('No attendance records to download');
+                return;
+            }
+
+            const eventName = document.getElementById('eventNameInput').value.trim() || 'Club Event';
+            const today = new Date().toLocaleDateString('en-AU');
+            
+            const csvContent = [
+                ['Date', 'Time', 'MemberID', 'Name', 'Paid', 'Event'],
+                ...attendanceLog.map(log => [
+                    today,
+                    log.time,
+                    log.memberId,
+                    log.name,
+                    log.paid ? 'Yes' : 'No',
+                    eventName
+                ])
+            ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendance_${today.replace(/\//g, '-')}_${eventName.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            showSuccess(`Attendance CSV downloaded! You can upload this to your Google Sheets if needed.`);
+        }
+
+        function showError(message) {
+            const resultDiv = document.getElementById('memberResult');
+            resultDiv.innerHTML = `
+                <div class="error-message">
+                    <strong>Error:</strong> ${message}
+                </div>
+            `;
+
+            setTimeout(() => {
+                if (resultDiv.innerHTML.includes('error-message')) {
+                    resultDiv.innerHTML = '';
+                }
+            }, 8000);
+        }
+
+        function showSuccess(message) {
+            const resultDiv = document.getElementById('memberResult');
+            resultDiv.innerHTML = `
+                <div class="success-message">
+                    <strong>Success:</strong> ${message}
+                </div>
+            `;
+
+            setTimeout(() => {
+                if (resultDiv.innerHTML.includes('success-message')) {
+                    resultDiv.innerHTML = '';
+                }
+            }, 5000);
+        }
+
+        // Event Listeners
+        document.getElementById('memberIdInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                recordAttendance();
+            }
+        });
+
+        document.getElementById('memberNameInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                recordAttendance();
+            }
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (qrScanner) {
+                qrScanner.destroy();
+            }
+        });
+
+        // Initialize the app when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            updateAttendanceLog();
+            initializeApp();
+        });
+    </script>
+</body>
+</html>
